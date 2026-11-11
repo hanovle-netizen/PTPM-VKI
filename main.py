@@ -19,9 +19,14 @@ def parse_side(value):
 
 def get_triangle_type(a, b, c):
     """Определяет вид треугольника по трём сторонам."""
-    if math.isclose(a, b) and math.isclose(b, c):
+    tol = 1e-6 * max(a, b, c)
+
+    def eq(x, y):
+        return math.isclose(x, y, rel_tol=0.0, abs_tol=tol)
+
+    if eq(a, b) and eq(b, c):
         return "равносторонний"
-    if math.isclose(a, b) or math.isclose(b, c) or math.isclose(a, c):
+    if eq(a, b) or eq(b, c) or eq(a, c):
         return "равнобедренный"
     return "разносторонний"
 
@@ -41,7 +46,7 @@ def get_coordinates(a, b, c):
     # Масштабируем, чтобы треугольник поместился в поле
     width = max(p[0] for p in points)
     height = max(p[1] for p in points)
-    scale = FIELD_SIZE / max(width, height)
+    scale = FIELD_SIZE / max(width, height) if max(width, height) > 0 else 1.0
     return [(int(round(x * scale)), int(round(y * scale))) for x, y in points]
 
 
@@ -56,25 +61,31 @@ def calculate_triangle(side_a, side_b, side_c):
         # Нечисловые данные
         if a is None or b is None or c is None:
             result = ("", [(-2, -2)] * 3)
-            logging.error(f"Неуспешный запрос: {params} | Ошибка: введены нечисловые данные | Результат: {result}")
+            logging.error(
+                f"Неуспешный запрос: {params} | Ошибка: введены нечисловые данные | Результат: {result}"
+            )
             return result
 
         # Отрицательные стороны или ноль
         if a <= 0 or b <= 0 or c <= 0:
             result = ("не треугольник", [(-1, -1)] * 3)
-            logging.error(f"Неуспешный запрос: {params} | Ошибка: стороны должны быть больше нуля | Результат: {result}")
+            logging.error(
+                f"Неуспешный запрос: {params} | Ошибка: стороны должны быть больше нуля | Результат: {result}"
+            )
             return result
 
-        # Неравенство треугольника
-        if a + b <= c or a + c <= b or b + c <= a:
+        # Неравенство треугольника с согласованным допуском
+        tol = 1e-6 * max(a, b, c)
+        if a + b - c <= tol or a + c - b <= tol or b + c - a <= tol:
             result = ("не треугольник", [(-1, -1)] * 3)
-            logging.error(f"Неуспешный запрос: {params} | Ошибка: не выполняется неравенство треугольника | Результат: {result}")
+            logging.error(
+                f"Неуспешный запрос: {params} | Ошибка: не выполняется неравенство треугольника | Результат: {result}"
+            )
             return result
 
-        triangle_type = get_triangle_type(a, b, c)
-        coordinates = get_coordinates(a, b, c)
-        result = (triangle_type, coordinates)
-        logging.info(f"Успешный запрос: {params} | Результат: {result}")
+        # Успешный случай
+        result = (get_triangle_type(a, b, c), get_coordinates(a, b, c))
+        logging.debug(f"Успешный запрос: {params} | Результат: {result}")
         return result
 
     except Exception:
